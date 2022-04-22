@@ -1,0 +1,157 @@
+﻿* Encoding: UTF-8.
+
+// compute the score
+
+COMPUTE hazard=sum(x6,x7,x8,x9,x10).
+EXECUTE.
+
+COMPUTE stress=sum(y1,y2,y3,y4,y5,y6,y7).
+EXECUTE.
+
+COMPUTE hazard_stress=hazard + stress.
+EXECUTE.
+
+RECODE x3 (Lowest thru 30=1) (30.01 thru Highest=2) INTO x3.cat.
+EXECUTE.
+
+===
+//Recode data, change from numeric into category
+
+RECODE stress (Lowest thru 7=1) (7.01 thru Highest=2) INTO stress.cat.
+EXECUTE.
+
+// Continue 9AM
+
+Normality
+
+EXAMINE VARIABLES=stress
+  /PLOT BOXPLOT STEMLEAF HISTOGRAM NPPLOT
+  /COMPARE GROUPS
+  /STATISTICS DESCRIPTIVES
+  /CINTERVAL 95
+  /MISSING LISTWISE
+  /NOTOTAL.
+
+//inferential
+
+One sample t-test - compare one group of data against the certain value
+
+T-TEST
+  /TESTVAL=14
+  /MISSING=ANALYSIS
+  /VARIABLES=stress
+  /CRITERIA=CI(.95).
+
+T-TEST GROUPS=x1(1 2)
+  /MISSING=ANALYSIS
+  /VARIABLES=stress
+  /CRITERIA=CI(.95).
+
+T-TEST PAIRS=stress WITH stress2 (PAIRED)
+  /CRITERIA=CI(.9500)
+  /MISSING=ANALYSIS.
+
+ONEWAY stress BY x2
+  /STATISTICS DESCRIPTIVES HOMOGENEITY 
+  /MISSING ANALYSIS
+  /POSTHOC=TUKEY ALPHA(0.05).
+
+// Non parameteric
+
+NPAR TESTS
+  /M-W= stress BY x1(1 2)
+  /MISSING ANALYSIS.
+
+SORT CASES  BY x1.
+SPLIT FILE LAYERED BY x1.
+
+FREQUENCIES VARIABLES=stress
+  /FORMAT=NOTABLE
+  /NTILES=4
+  /STATISTICS=MEDIAN
+  /ORDER=ANALYSIS.
+
+SPLIT FILE OFF.
+
+/////======
+
+SPLIT FILE OFF.
+
+NPAR TESTS
+  /K-W=stress BY x2(1 4)
+  /MISSING ANALYSIS.
+
+SORT CASES  BY x2.
+SPLIT FILE LAYERED BY x2.
+
+FREQUENCIES VARIABLES=stress
+  /FORMAT=NOTABLE
+  /NTILES=4
+  /STATISTICS=MEDIAN
+  /ORDER=ANALYSIS.
+
+SPLIT FILE OFF.
+
+// ===
+
+NPAR TESTS
+  /WILCOXON=stress WITH stress2 (PAIRED)
+  /MISSING ANALYSIS.
+
+FREQUENCIES VARIABLES=stress stress2
+  /FORMAT=NOTABLE
+  /NTILES=4
+  /STATISTICS=MEDIAN
+  /ORDER=ANALYSIS.
+
+//=== Correlation
+
+CORRELATIONS
+  /VARIABLES=stress hazard
+  /PRINT=TWOTAIL NOSIG
+  /MISSING=PAIRWISE.
+
+//spearman
+
+NONPAR CORR
+  /VARIABLES=stress hazard
+  /PRINT=SPEARMAN TWOTAIL NOSIG
+  /MISSING=PAIRWISE.
+
+// Stress and age
+
+CORRELATIONS
+  /VARIABLES=stress x3
+  /PRINT=TWOTAIL NOSIG
+  /MISSING=PAIRWISE.
+
+// chi square
+
+RECODE hazard (5=3) (4=2) (3=2) (2=1) (1=1) (0=1) INTO hazard.new.
+EXECUTE.
+
+NPAR TESTS
+  /CHISQUARE=x1
+  /EXPECTED=EQUAL
+  /MISSING ANALYSIS.
+
+// chi square testing goodness of fit
+
+NPAR TESTS
+  /CHISQUARE=hazard.new
+  /EXPECTED=EQUAL
+  /MISSING ANALYSIS.
+
+NPAR TESTS
+  /CHISQUARE=hazard.new
+  /EXPECTED=0.3 0.6 0.1
+  /MISSING ANALYSIS.
+
+// test of independent
+
+CROSSTABS
+  /TABLES=x10 BY stress.cat
+  /FORMAT=AVALUE TABLES
+  /STATISTICS=CHISQ CC PHI 
+  /CELLS=COUNT COLUMN 
+  /COUNT ROUND CELL.
